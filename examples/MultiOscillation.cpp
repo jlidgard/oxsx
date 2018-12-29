@@ -49,8 +49,8 @@ const std::string dataFile3 = "/data/snoplus/blakei/antinu/mc/ntuples/test/OscPi
 const std::string dataTreeName3 = "nt";
 
 double dist1 = 240.22;
-double dist2 = 349.147;
-double dist3 = 340.37;
+double dist3 = 349.147;
+double dist2 = 340.37;
 
 int numexps = 1; 
 
@@ -75,22 +75,21 @@ std::vector<double> reactorDistances;
 
 std::vector<std::string> Reactors;
 
-void LHFit(){
-  
+void LHFit(){  
   Reactors.push_back("BRUCE");
-  Reactors.push_back("DARLINGTON");
   Reactors.push_back("PICKERING");
-
+  Reactors.push_back("DARLINGTON");
+  
   reactorDistances.push_back(dist1);
   reactorDistances.push_back(dist2);
   reactorDistances.push_back(dist3);
   
   int numPdfs = Reactors.size();
   gStyle->SetOptStat(0);
-  
-  TRandom3 *r1 = new TRandom3();
+
+  TRandom3 *r1 = new TRandom3(0);
   r1->SetSeed(0);
-  
+
   ////////////////////
   // 1. Set Up PDFs //
   ////////////////////
@@ -102,10 +101,10 @@ void LHFit(){
   AxisCollection axes;
   axes.AddAxis(BinAxis("ParKE", Emin, Emax, numbins));
   
-  BinnedED  dataSetPdf("dataSetPdf",axes);
-  BinnedED  dataSetPdf1("dataSetPdf1",axes);
-  BinnedED  dataSetPdf2("dataSetPdf2",axes);
-  BinnedED  dataSetPdf3("dataSetPdf3",axes);
+  BinnedED dataSetPdf("dataSetPdf",axes);
+  BinnedED dataSetPdf1("dataSetPdf1",axes);
+  BinnedED dataSetPdf2("dataSetPdf2",axes);
+  BinnedED dataSetPdf3("dataSetPdf3",axes);
 
   dataSetPdf.SetObservables(dataRep);
   dataSetPdf1.SetObservables(dataRep);
@@ -133,10 +132,10 @@ void LHFit(){
   dataSetPdf.Add(dataSetPdf2,1);
   dataSetPdf.Add(dataSetPdf3,1);
   //poisson stat fluctutate input data
-  for(int i = 0; i < dataSetPdf.GetNBins(); i++)
-    {
-      dataSetPdf.SetBinContent(i, r1->Poisson(dataSetPdf.GetBinContent(i)));
-    }
+  //for(int i = 0; i < dataSetPdf.GetNBins(); i++){
+  //dataSetPdf.SetBinContent(i, r1->Poisson(dataSetPdf.GetBinContent(i)));
+  //}
+  
   char name[100];
   //BinnedED *reactorPdf[numPdfs];
   std::vector<BinnedED*> reactorPdf(numPdfs);
@@ -152,15 +151,19 @@ void LHFit(){
   lhFunction.SetBuffer(0,BuffLow,BuffHigh);
   lhFunction.SetDataDist(dataSetPdf); // initialise withe the data set
   
-  minima["d21"] = 0.;
+  minima["d21"] = 4e-5;
   minima["s12"] = 0.1;
   minima["s13"] = 0.01;
-  maxima["d21" ] = 0.0001;
+  maxima["d21" ] = 10e-5;
   maxima["s12" ] = 0.5;
   maxima["s13" ] = 0.05;
-  initialval["d21" ]  = 7.4e-5;
+  //initialval["d21"] = (r1->Uniform(minima["d21"],maxima["d21"]));//7.4e-5;
+  //initialval["s12"] = (r1->Uniform(minima["s12"],maxima["s12"]));//0.3;
+  //initialval["s13"] = (r1->Uniform(minima["s13"],maxima["s13"]));//0.02;
+  initialval["d21" ]  = 8.6e-5;
   initialval["s12" ]  = 0.3;
   initialval["s13" ]  = 0.02;
+  std::cout<<"\n Initial d21:  "<<initialval["d21"]<<"\n"<<std::endl;
   initialerr["d21" ] = 0.1*initialval["d21"];
   initialerr["s12" ] = 0.1*initialval["s12"];
   initialerr["s13" ] = 0.1*initialval["s13"];
@@ -203,8 +206,8 @@ void LHFit(){
   std::cout << "Initialised Pdfs" << std::endl;
 
   //lhFunction.SetConstraint("ReactorPdf0_norm",41000,5000);
-  lhFunction.SetConstraint("ReactorPdf1_norm",9450,2000);
-  lhFunction.SetConstraint("ReactorPdf2_norm",9500,2000);
+  //lhFunction.SetConstraint("ReactorPdf1_norm",9450,2000);
+  //lhFunction.SetConstraint("ReactorPdf2_norm",9500,2000);
   
   //lhFunction.SetConstraint("d21",7.37e-5,1.6e-6);
   lhFunction.SetConstraint("s12",0.297,0.016);

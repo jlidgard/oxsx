@@ -47,7 +47,7 @@ BinnedNLLH::Evaluate(){
     for(std::map<std::string, QuadraticConstraint>::iterator it = fConstraints.begin();
         it != fConstraints.end(); ++it)
         nLogLH += it->second.Evaluate(fComponentManager.GetParameter(it->first));
-   
+    
     return nLogLH;
 }
 

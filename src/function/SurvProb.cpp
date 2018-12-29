@@ -269,6 +269,7 @@ SurvProb::Integral(const std::vector<double>& mins_, const std::vector<double>& 
     }
 
     //std::cout << Cdf(0,10.) << std::endl;
+    //std::cout << fdelmsqr21s.at(0) << std::endl;
     //std::cout << fsinsqrtheta12s.at(0) << std::endl;
     return integral;  
 }

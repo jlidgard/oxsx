@@ -180,7 +180,6 @@ Minuit::Optimise(TestStatistic* testStat_){
 
     // defaults are same as ROOT defaults
     ROOT::Minuit2::FunctionMinimum fnMin  = fMinimiser -> operator()(fMaxCalls, fTolerance);
-
     fFitResult.SetBestFit(ContainerTools::CreateMap(fParameterNames, fMinimiser -> Params()));
     fFitResult.SetValid(fnMin.IsValid());
 
@@ -192,7 +191,6 @@ Minuit::Optimise(TestStatistic* testStat_){
     DenseMatrix covarianceMatrix = CalcCovarianceMatrix(fnMin);
 
     fFitResult.SetCovarianceMatrix(covarianceMatrix);
-
     return fFitResult;
 }
 

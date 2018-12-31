@@ -133,20 +133,14 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
   
   minima["d21"] = 5e-5;
   minima["s12"] = 0.2;
-  minima["s13"] = 0.02;
   maxima["d21"] = 9e-5;
   maxima["s12"] = 0.4;
-  maxima["s13"] = 0.04;
   initialval["d21"] = (r1->Uniform(minima["d21"],maxima["d21"]));//6.5e-5;
   initialval["s12"] = (r1->Uniform(minima["s12"],maxima["s12"]));//0.3;
-  //initialval["s13"] = (r1->Uniform(minima["s13"],maxima["s13"]));//0.02;
-  initialval["s13"] = 0.0215;
   std::cout<<"\n Initial d21:  "<<initialval["d21"]<<"\n"<<std::endl;
   std::cout<<" Initial s12:  "<<initialval["s12"]<<"\n"<<std::endl;
-  std::cout<<" Initial s13:  "<<initialval["s13"]<<"\n"<<std::endl;
   initialerr["d21"] = 0.1*initialval["d21"];
   initialerr["s12"] = 0.1*initialval["s12"];
-  initialerr["s13"] = 0.1*initialval["s13"];
   
   r1->SetSeed(0);
   double rand = r1->Rndm();
@@ -156,10 +150,9 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
     reactorPdf->Add(*reactorPdf0,1);
     
     sprintf(name,"%s_Survival",reactorNames[i].c_str());
-    SurvProb* survprob = new SurvProb(0.1,0.1,0.1,reactorDistances[i],name);
+    SurvProb* survprob = new SurvProb(0.1,0.1,reactorDistances[i],name);
     survprob->RenameParameter("delmsqr21_0","d21");
     survprob->RenameParameter("sinsqrtheta12_0","s12");
-    survprob->RenameParameter("sinsqrtheta13_0","s13");
     sprintf(name,"%s_Systematic",reactorNames[i].c_str());
     reactorSystematic = new NuOsc(name);
     reactorSystematic->SetFunction(survprob);
@@ -188,8 +181,6 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
 
   //lhFunction.SetConstraint("d21",7.37e-5,1.6e-6);
   //lhFunction.SetConstraint("s12",0.297,0.016);
-  lhFunction.SetConstraint("s13",0.0215,0.009);
-  //lhFunction.SetConstraint("s13",0.0215,0.0001);
 
   std::cout << "Built LH function " << std::endl;
   ////////////
@@ -219,7 +210,7 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
   TPaveText pt(0.75,0.35,1.0,0.65,"NDC");
   for (int i = 0; i< numPdfs; i++){    
     NuOsc OscResult("OscResult");
-    OscResult.SetFunction(new SurvProb(bestFit.at("d21"),bestFit.at("s12"),bestFit.at("s13"),reactorDistances[i]));
+    OscResult.SetFunction(new SurvProb(bestFit.at("d21"),bestFit.at("s12"),reactorDistances[i]));
     OscResult.SetAxes(axes);
     OscResult.SetTransformationObs(dataRep);
     OscResult.SetDistributionObs(dataRep);
@@ -241,7 +232,6 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
   
   pt.AddText(Form("#Delta m_{21} = %.6f",bestFit["d21"]));
   pt.AddText(Form("#theta_{12} = %.3f",bestFit["s12"]));
-  pt.AddText(Form("#theta_{13} = %.4f",bestFit["s13"]));
   pt.SetFillColor(kWhite);
   pt.SetShadowColor(kWhite);
  

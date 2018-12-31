@@ -16,11 +16,11 @@
 
 // Constructory things
 SurvProb::SurvProb() : fFitter(this,1),fBaseline(0){
-  Initialise(std::vector<double>(1, 0),std::vector<double>(1, 0), std::vector<double>(1, 0), "");
+  Initialise(std::vector<double>(1, 0),std::vector<double>(1, 0), "");
 }
 
 SurvProb::SurvProb(size_t nDims_, const std::string& name_): fFitter(this,nDims_),fBaseline(0){
-  Initialise(std::vector<double>(nDims_, 0),std::vector<double>(nDims_, 0), std::vector<double>(nDims_, 0), name_);
+  Initialise(std::vector<double>(nDims_, 0),std::vector<double>(nDims_, 0), name_);
 }// means = 0, stdDevs = 1
 
 SurvProb::SurvProb(double delmsqr21_, double sinsqrtheta12_, double baseline_, const std::string& name_ ): fFitter(this,1), fBaseline(baseline_){

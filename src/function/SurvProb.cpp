@@ -203,7 +203,7 @@ SurvProb::Cdf(size_t dim_, double val_) const{
     double dmsqr21  = fdelmsqr21s.at(dim_);
     double ssqr12 = fsinsqrtheta12s.at(dim_);
     double ssqr13 = 0.0215;
-
+    //std::cout<<"ssqr12: "<<ssqr12<<std::endl;
     double scale = 1.267e3; // for nuE in [MeV] and baseline in [km]
     double a = (1.0-ssqr13)*(1.0-ssqr13);
     double b = pow(sin(2.0 * asin(sqrt(ssqr12))), 2.0);

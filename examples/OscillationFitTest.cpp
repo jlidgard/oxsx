@@ -180,7 +180,7 @@ void LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs,
   //lhFunction.SetConstraint("ReactorPdf3_norm",500,1000);
 
   //lhFunction.SetConstraint("d21",7.37e-5,1.6e-6);
-  //lhFunction.SetConstraint("s12",0.297,0.016);
+  lhFunction.SetConstraint("s12",0.297,0.016);
 
   std::cout << "Built LH function " << std::endl;
   ////////////

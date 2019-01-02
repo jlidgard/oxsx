@@ -12,7 +12,6 @@ class SurvProbFitter{
 public:
 
     SurvProbFitter(SurvProb* gaus,const size_t& nDims);
-    // SurvProbFitter(SurvProb* gaus, const std::vector<std::string>&, const std::vector<std::string>&);
     SurvProbFitter(SurvProb* gaus, const std::vector<std::string>&, const std::vector<std::string>&);
 
     void   SetParameter(const std::string& name_, double value);

@@ -55,8 +55,7 @@ SurvProb::operator=(const SurvProb& copy_){
 }
 
 void
-SurvProb::Initialise(const std::vector<double>& delmsqr21s_, const std::vector<double>& sinsqrtheta12s_,
-		     const std::string& name_){
+SurvProb::Initialise(const std::vector<double>& delmsqr21s_, const std::vector<double>& sinsqrtheta12s_, const std::string& name_){
     if (name_ == "")
         fName = "survprob";
     else
@@ -128,9 +127,9 @@ SurvProb::Setdelmsqrssinsqrtheta12s(const std::vector<double>& delmsqr21s_,
     if (delmsqr21s_.size() != sinsqrtheta12s_.size())
         throw DimensionError("SurvProb::Tried to set SurvProb function with #delmqrs != #sinsqrtheta12s!");
 
-    for(size_t i = 0; i < delmsqr21s_.size(); i++)
-        if(delmsqr21s_.at(i) <= 0)
-            throw ValueError("SurvProb::SurvProb delmsqr21s must be greater than 0!");
+    //for(size_t i = 0; i < delmsqr21s_.size(); i++)
+    //    if(delmsqr21s_.at(i) <= 0)
+    //        throw ValueError("SurvProb::SurvProb delmsqr21s must be greater than 0!");
     for(size_t i = 0; i < sinsqrtheta12s_.size(); i++)
         if(sinsqrtheta12s_.at(i) <= 0)
             throw ValueError("SurvProb::SurvProb sinsqrtheta12 must be greater than 0!");

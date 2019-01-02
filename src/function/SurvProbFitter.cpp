@@ -87,16 +87,13 @@ SurvProbFitter::GetParameter(const std::string& name_) const{
 
     std::vector<std::string>::const_iterator it;
     it=find(fDelmsqr21sNames.begin(),fDelmsqr21sNames.end(), name_);
-    if(it==fDelmsqr21sNames.end()){
-      
+    if(it==fDelmsqr21sNames.end()){      
         it=find(fSinsqrtheta12sNames.begin(),fSinsqrtheta12sNames.end(), name_);
-
         if(it==fDelmsqr21sNames.end())
 	  throw NotFoundError(Formatter()<<"SurvProbFitter:: Parameter : "<<
 			      name_<<
 			      " was not known to the SurvProbFitter. Available names: "<<
 			      ToString(GetParameterNames()) );
-            
 	return fOrignalFunc->Getsinsqrtheta12(it-fSinsqrtheta12sNames.end());
     }
     return fOrignalFunc->Getdelmsqr21(it-fDelmsqr21sNames.end());

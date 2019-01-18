@@ -75,7 +75,7 @@ void readInfoFile(const std::string &runInfoFileName, std::vector<std::string> &
   }
   in.close();
 }
-xo
+
 double lhmax = -1000000000;
 double lhmin = 1000000000;
 

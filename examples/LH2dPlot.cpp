@@ -79,7 +79,7 @@ void readInfoFile(const std::string &runInfoFileName, std::vector<std::string> &
 double lhmax = -1000000000;
 double lhmin = 1000000000;
 
-double LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs, std::vector<double> reactorDistances,  double flux, int numbins, double Emin, double Emax, double Normmin, double Normmax, double d21fix, double s12fix, double s13fix){
+double LHFit(const std::string UnOscfile, const std::string dataFile, int numPdfs, std::vector<std::string> reactorNames, std::vector<double> reactorDistances,  double flux, int numbins, double Emin, double Emax, double Normmin, double Normmax, double d21fix, double s12fix, double s13fix){
   char name[100];
 
   TRandom3 *r1 = new TRandom3();
@@ -109,32 +109,33 @@ double LHFit(const std::string UnOscfile, const std::string dataFile, int numPdf
   dataSetPdf.Scale(dataint);
 
   ROOTNtuple reactorNtp(UnOscfile, "nt");
-  //NuOsc *reactorSystematic;
+  NuOsc *reactorSystematic;
   ParameterDict minima;
   ParameterDict maxima;
   ParameterDict initialval;
   ParameterDict initialerr;
  
+  BinnedED * reactorPdf0 = new BinnedED(name,axes);
+  reactorPdf0->SetObservables(0);
+  for(size_t j = 0; j < reactorNtp.GetNEntries(); j++)
+    reactorPdf0->Fill(reactorNtp.GetEntry(j));
+  reactorPdf0->Normalise();
+  
   BinnedNLLH lhFunction;
   lhFunction.SetBufferAsOverflow(true);
   int Buff = 5;
   lhFunction.SetBuffer(0,Buff,Buff);
   lhFunction.SetDataDist(dataSetPdf); // initialise withe the data set
   
-  BinnedED * reactorPdf0 = new BinnedED(name,axes);
-  reactorPdf0->SetObservables(0);
-  for(size_t j = 0; j < reactorNtp.GetNEntries(); j++)
-    reactorPdf0->Fill(reactorNtp.GetEntry(j));
-  reactorPdf0->Normalise();
-
   // loop over all reactor pdfs
+  
+  double rand = r1->Rndm();
   for (int i = 0; i< numPdfs; i++){
-    sprintf(name,"ReactorPdf%d",i);
-    BinnedED * reactorPdf = new BinnedED(name,axes);
+    BinnedED * reactorPdf = new BinnedED(reactorNames[i],axes);
     reactorPdf->SetObservables(0);
     
     NuOsc reactorSystematic("reactorSystematic");
-    reactorSystematic.SetFunction(new SurvProb(d21fix,s12fix,s13fix,reactorDistances[i]));
+    reactorSystematic.SetFunction(new SurvProb(d21fix,s12fix,reactorDistances[i]));
     reactorSystematic.SetAxes(axes);
     reactorSystematic.SetTransformationObs(dataRep);
     reactorSystematic.SetDistributionObs(dataRep);
@@ -144,10 +145,10 @@ double LHFit(const std::string UnOscfile, const std::string dataFile, int numPdf
     reactorPdf->Normalise();
     
     // Setting optimisation limits
-    sprintf(name,"ReactorPdf%d_norm",i);
-    minima[name] = 0;
-    maxima[name] = 100000;
-    initialval[name] = 50000;
+    sprintf(name,"%s_norm",reactorNames[i].c_str());
+    minima[name] = 0;//Normmin;
+    maxima[name] = flux*10000;//Normmax;
+    initialval[name] = (rand*(maxima[name]-minima[name]))+minima[name];//flux*2000;
     initialerr[name] = 0.1*initialval[name];
 
     lhFunction.AddDist(*reactorPdf);
@@ -253,7 +254,7 @@ int main(int argc, char *argv[]) {
 	std::cout<<""<<std::endl;
 	std::cout<<"bin x: "<<i<<"    (from "<<1<<" to "<<num_s12<<")"<<std::endl;
 	std::cout<<"bin y: "<<j<<"    (from "<<1<<" to "<<num_d21<<")"<<std::endl;
-	h2->SetBinContent(i,j,LHFit(UnOscfile,dataFile,numPdfs,distances,flux,numbins,Emin,Emax,Normmin,Normmax,d21,s12,0.0215));
+	h2->SetBinContent(i,j,LHFit(UnOscfile,dataFile,numPdfs,reactorNames,distances,flux,numbins,Emin,Emax,Normmin,Normmax,d21,s12,0.0215));
 	printf("-------------------------------------------------------------------------------------\n");
       }
     }

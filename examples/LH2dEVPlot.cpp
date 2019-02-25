@@ -60,32 +60,33 @@ double probability(double nuE, double baseline, double delmsqr21, double sinsqrt
 //function to apply cuts to isolate positron and neutron events
 //At present, looking at the MC event number and EV index number to ensure no pairs are missed
 //(won't be like this for analysing data)
-void OscPromptE (const std::string infile, const std::string outfile,  int nhitMinPrompt, int nhitMinLate, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13, double Distance) {
+void OscPromptE (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13, double Distance) {
   TFile *fin = TFile::Open(infile.c_str());
   TNtuple *T = (TNtuple *) fin->Get("nt");
 
   TFile *fout = new TFile(outfile.c_str(), "RECREATE");
   TNtuple* ntout = new TNtuple("nt","nt","E1");
   
-  double survprob;
-  float ParKE,ReactorDistance;
-  float MCentryb4, MCentry;
-  float days,nextDays;
-  float secs,nextSec;
-  float nsecs,nextNSec;
+  float MCentryb4, MCentry,nextMCentry;
+  float days,nextdays;
+  float secs;//,nextSec;
+  float nsecs;//,nextNSec;
   float nhit,nextnhit;
   float evindex, nextevindex;
-  float timeD, indextimeD;
+  double timeD, DeltaR;
   float Fitted, nextFitted;
-  float Energy,nextEnergy;
-  float posX,posY,posZ;
+  float Energy,nextEnergy,parke,part1ke,part2ke;
+  float posX,posY,posZ,nextposX,nextposY,nextposZ;
   float EVcount = 0;
-  double VecRMag;
+  //TVector3 VecR, nextVecR;
+  double VecRMag,nextVecRMag;
   double time, nexttime;
   
   T->SetBranchAddress("MCentry", &MCentry);
   T->SetBranchAddress("Evindex", &evindex);
-  T->SetBranchAddress("ParKE", &ParKE);
+  T->SetBranchAddress("ParKE", &parke);
+  T->SetBranchAddress("Part1KE", &part1ke);
+  T->SetBranchAddress("Part2KE", &part2ke);
   T->SetBranchAddress("Days", &days);
   T->SetBranchAddress("Seconds", &secs);
   T->SetBranchAddress("Nanoseconds", &nsecs);
@@ -94,164 +95,180 @@ void OscPromptE (const std::string infile, const std::string outfile,  int nhitM
   T->SetBranchAddress("posx", &posX);
   T->SetBranchAddress("posy", &posY);
   T->SetBranchAddress("posz", &posZ);
-  T->SetBranchAddress("posz", &posZ);
   T->SetBranchAddress("Fitted", &Fitted);
   //T->SetBranchAddress("ReactorDistance", &ReactorDistance);
 
-  bool survived = false;
-  
+  double survprob;
   TRandom3 *r1 = new TRandom3();
   r1->SetSeed(0);    
-    
+
   //get first event
   T->GetEntry(0);
   MCentryb4 = MCentry;  
   //go through entries and collect triggered evs which correspond to a MC event.
   for(int i = 1; i < T->GetEntries(); i++){
+  //for(int i = 1; i < 50; i++){
     T->GetEntry(i);
-    if(abs(MCentry - MCentryb4)>= 1 && evindex == 0){
+    //mark when passed group of evs with same mcindex:
+    if(abs(MCentry - MCentryb4)>= 1 && evindex == 0){ 
       T->GetEntry(i-1);
-      EVcount = evindex + 1;
+      EVcount = evindex + 1; //Get Ev count
       
-      if (EVcount <= 1 || EVcount > 4) 
-	nextFitted = -1;
-      
-      if (EVcount == 2){
-	T->GetEntry(i-1);
-	nextFitted = Fitted;
-	nextDays = days;
-	nextSec = secs;
-	nextNSec = nsecs;
-	nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-	nextnhit = nhit;
-	nextevindex = evindex;
-	nextEnergy = Energy;
-      }
-    
-      if (EVcount == 4){
-	T->GetEntry(i-3);
-	nextFitted = Fitted;
-	nextDays = days;
-	nextSec = secs;
-	nextNSec = nsecs;
-	nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-	nextnhit = nhit;
-	nextevindex = evindex;
-	nextEnergy = Energy;
-      }
+      size_t j = 0;  // j index for potential positron event
+      bool pairfound = false;
+      //move j index within MC index group, move onto next group when j reaches second to last event
+      while (j < EVcount - 1){
+	int k = 1; // k index for potential neutron event
+	float time_diff_condition = 0;
+	//move j index within MC index group, move on to next group if nothing within deltaT or no more events to look at
+	while((time_diff_condition < deltaT) && (k < EVcount - j)){
+	  T->GetEntry(i-EVcount+j+k); // neutron event
+	  nextdays = days;
+	  nextMCentry = MCentry;
+	  nextFitted = Fitted;
+	  nexttime = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
+	  nextnhit = nhit;
+	  nextevindex = evindex;
+	  nextEnergy = Energy;
+	  //nextVecR = TVector3(posX,posY,posZ);
+	  nextposX = posX;
+	  nextposY = posY;
+	  nextposZ = posZ;
+	  nextVecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
+	  
+	  T->GetEntry(i-EVcount+j);
+	  bool goodpair = false;
+	  timeD = 0;
 
-      if (EVcount == 3){
-	T->GetEntry(i-1);
-	nextFitted = Fitted;
-	nextDays = days;
-	nextSec = secs;
-	nextNSec = nsecs;
-	nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-	nextnhit = nhit;
-	nextevindex = 1;
-	nextEnergy = Energy;
-      }
-
-      T->GetEntry(i-EVcount);    
-      //did MC event survive?
-      //survprob = probability(ParKE, ReactorDistance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
-      survprob = probability(ParKE, Distance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
-      if (survprob > r1->Rndm()){
-        survived = true;
-      }else
-        survived = false;      
-
-      //VecR = TVector3(posX,posY,posZ);
-      if (survived){
-	if (Fitted > 0 && nextFitted > 0){
-	  VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
-	  if (VecRMag < 5700){
+	  if (Fitted > 0 && nextFitted > 0){
+	    //VecR = TVector3(posX,posY,posZ);
+	    VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
 	    time = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
-	    timeD = std::abs(nexttime - time);
-	    if(timeD < deltaT){
-	      indextimeD = timeD;
-	      if ((nhit >= nhitMinPrompt) && (nextnhit >= nhitMinLate)){
-		ntout->Fill(Energy);
+	    timeD = std::fabs(nexttime - time);
+	    //DeltaR = (VecR-nextVecR).Mag();
+	    DeltaR = sqrt((pow(posX-nextposX,2))+(pow(posY-nextposY,2))+(pow(posZ-nextposZ,2)));
+	    //VecR = TVector3(posX,posY,posZ);
+	    if(timeD > 400 && timeD < deltaT){
+	      if (VecRMag < 5700){
+		if (nextVecRMag < 5700){
+		  if (DeltaR < 1500){
+		    if (E1Min <= Energy && Energy <= E1Max){
+		      if (E2Min <= nextEnergy &&nextEnergy <= E2Max){
+			if (nhit1Min <= nhit  && nhit <= nhit1Max){
+			  if (nhit2Min <= nextnhit && nextnhit <= nhit2Max){
+			    survprob = probability(parke, Distance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
+			    if (survprob > r1->Rndm()){
+			      ntout->Fill(Energy);
+			      goodpair = true;  //pair passed quality cuts, if not continue search in group
+			      pairfound = true; // a pair was found
+			      k += 100; // cancel sub search
+			    }
+			  }
+			}
+		      }
+		    }
+		  }
+		}
+	      }
+	    }
+	  } // if pair failed quality cuts, continue sub group search
+	  if (!goodpair){
+	    k += 1;
+	    if (Fitted <= 0){ //if positron/j_index not a valid fit, move onto next sub group
+	      k += 100;
+	    }else{ //else if good, check that it satisfies time diff, if not move onto next sub group
+	      time_diff_condition = timeD;
+	    }
+	  }
+	}
+	if (pairfound){
+	  j += 100;
+	}else{
+	  j += 1;
+	}
+      } 
+    }
+    MCentryb4 = MCentry;
+  }
+  
+  int lastentry = (T->GetEntries() - 1);
+  T->GetEntry(lastentry);
+  EVcount = evindex + 1; //Get Ev count
+  
+  size_t j = 0;  // j index for potential positron event
+  bool pairfound = false;
+  //move j index within MC index group, move onto next group when j reaches second to last event
+  while (j < EVcount - 1){
+    int k = 1; // k index for potential neutron event
+    float time_diff_condition = 0;
+    //move j index within MC index group, move on to next group if nothing within deltaT or no more events to look at
+    while((time_diff_condition < deltaT) && (k < EVcount - j)){
+      T->GetEntry(lastentry-EVcount+j+k+1); // neutron event
+      nextFitted = Fitted;
+      nexttime = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
+      nextnhit = nhit;
+      nextevindex = evindex;
+      nextEnergy = Energy;
+      //nextVecR = TVector3(posX,posY,posZ);
+      nextposX = posX;
+      nextposY = posY;
+      nextposZ = posZ;
+      nextVecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
+      
+      T->GetEntry(lastentry+1-EVcount+j);
+      bool goodpair = false;
+      if (Fitted > 0 && nextFitted > 0){
+	//VecR = TVector3(posX,posY,posZ);
+	VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
+	time = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
+	timeD = std::fabs(nexttime - time);
+	//DeltaR = (VecR-nextVecR).Mag();
+	DeltaR = sqrt((pow(posX-nextposX,2))+(pow(posY-nextposY,2))+(pow(posZ-nextposZ,2)));
+	if(timeD > 400 && timeD < deltaT){
+	  if (VecRMag < 5700){
+	    if (nextVecRMag < 5700){
+	      if (DeltaR < 1500){
+		if (E1Min <= Energy && Energy <= E1Max){
+		  if (E2Min <= nextEnergy &&nextEnergy <= E2Max){
+		    if (nhit1Min <= nhit  && nhit <= nhit1Max){
+		      if (nhit2Min <= nextnhit && nextnhit <= nhit2Max){
+			survprob = probability(parke, Distance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
+			if (survprob > r1->Rndm()){
+			  ntout->Fill(Energy);
+			  goodpair = true;  //pair passed quality cuts, if not continue search in group
+			  pairfound = true; // a pair was found
+			  k += 100; // cancel sub search
+			}
+		      }
+		    }
+		  }
+		}
 	      }
 	    }
 	  }
 	}
-      }
-    }
-    MCentryb4 = MCentry;
-  }
-  //last MC event
-  int lastentry = (T->GetEntries() - 1);
-  T->GetEntry(lastentry);
-  EVcount = evindex + 1;
-  if (EVcount <= 1 || EVcount > 4) 
-    nextFitted = -1;
-      
-  if (EVcount == 2){
-    T->GetEntry(lastentry);
-    nextFitted = Fitted;
-    nextDays = days;
-    nextSec = secs;
-    nextNSec = nsecs;
-    nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-    nextnhit = nhit;
-    nextevindex = evindex;
-    nextEnergy = Energy;
-  }
-    
-  if (EVcount == 4){
-    T->GetEntry(lastentry-2);
-    nextFitted = Fitted;
-    nextDays = days;
-    nextSec = secs;
-    nextNSec = nsecs;
-    nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-    nextnhit = nhit;
-    nextevindex = evindex;
-    nextEnergy = Energy;
-  }
-
-  if (EVcount == 3){
-    T->GetEntry(lastentry);
-    nextFitted = Fitted;
-    nextDays = days;
-    nextSec = secs;
-    nextNSec = nsecs;
-    nexttime = nextNSec + (nextSec * pow(10, 9)) + (nextDays * 24 * 3600 * pow(10, 9));
-    nextnhit = nhit;
-    nextevindex = 1;
-    nextEnergy = Energy;
-  }
-
-  T->GetEntry(lastentry-EVcount+1);
-  //survprob = probability(ParKE, ReactorDistance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
-  survprob = probability(ParKE, Distance, delmsqr21, sinsqrtheta12, sinsqrtheta13);
-  if (survprob > r1->Rndm()){
-    survived = true;
-  }else
-    survived = false;      
-
-  //VecR = TVector3(posX,posY,posZ);
-  if (survived){
-    if (Fitted > 0 && nextFitted > 0){
-      VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
-      if (VecRMag < 5700){
-	time = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
-	timeD = std::abs(nexttime - time);
-	if(timeD < deltaT){
-	  indextimeD = timeD;
-	  if ((nhit >= nhitMinPrompt) && (nextnhit >= nhitMinLate)){
-	    ntout->Fill(Energy);
-	  }
+      } // if pair failed quality cuts, continue sub group search
+      if (!goodpair){
+	k += 1;
+	if (Fitted <= 0){ //if positron/j_index not a valid fit, move onto next sub group
+	  k += 100;
+	}else{ //else if good, check that it satisfies time diff, if not move onto next sub group
+	  time_diff_condition = timeD;
 	}
       }
     }
-  }
+    if (pairfound){
+      j += 100;
+    }else{
+      j += 1;
+    }
+  } 
+  
   ntout->Write();
   delete fin;
   delete fout;
 }
-
+  
 
 //TVector3 doesnt work??
 void readInfoFile(const std::string &runInfoFileName, std::vector<std::string> &reactorNames, std::vector<double> &distances, std::vector<std::string> &reactorTypes, std::vector<int> &nCores, std::vector<double> &powers ) {
@@ -296,7 +313,7 @@ void readInfoFile(const std::string &runInfoFileName, std::vector<std::string> &
 double lhmax = -1000000000;
 double lhmin = 1000000000;
 
-double LHFit(const std::string UnOscfile, const std::string dataFile, const std::string tempFile, int numPdfs, std::vector<std::string> reactorNames, std::vector<double> reactorDistances,  double flux, int numbins, double Emin, double Emax, double Normmin, double Normmax, double d21fix, double s12fix, int NhitPrompt, int NhitDelayed, int deltaT){
+double LHFit(const std::string UnOscfile, const std::string dataFile, const std::string tempFile, int numPdfs, std::vector<std::string> reactorNames, std::vector<double> reactorDistances,  double flux, int numbins, double Emin, double Emax, double Normmin, double Normmax, double d21fix, double s12fix,  int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT){
   char name[100];
 
   TRandom3 *r1 = new TRandom3();
@@ -340,16 +357,22 @@ double LHFit(const std::string UnOscfile, const std::string dataFile, const std:
   
   double rand = r1->Rndm();
   for (int i = 0; i< numPdfs; i++){
-    OscPromptE(UnOscfile, tempFile,NhitPrompt,NhitDelayed,deltaT,d21fix,s12fix,0.0215,reactorDistances[i]);
+    OscPromptE(UnOscfile, tempFile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,d21fix,s12fix,0.0215,reactorDistances[i]);
     
     BinnedED *reactorPdf = new BinnedED(reactorNames[i],axes);
     reactorPdf->SetObservables(0);
 
-    ROOTNtuple reactorNtp("/data/snoplus/blakei/antinu/Test.root", "nt");
+    ROOTNtuple reactorNtp(tempFile.c_str(), "nt");
     for(size_t j = 0; j < reactorNtp.GetNEntries(); j++)
       reactorPdf->Fill(reactorNtp.GetEntry(j));
     reactorPdf->Normalise();
 
+    std::cout<<"BinContents: "<<std::endl;
+    std::vector<double> Bincontents = reactorPdf->GetBinContents();
+    for (int j = 0; j<Bincontents.size() ; j++){
+      std::cout<<"j: "<<Bincontents[j]<<std::endl;
+    }
+    
     // Setting optimisation limits
     sprintf(name,"%s_norm",reactorNames[i].c_str());
     minima[name] = 0;//Normmin;
@@ -394,27 +417,22 @@ double LHFit(const std::string UnOscfile, const std::string dataFile, const std:
 
 int main(int argc, char *argv[]) {
 
-  if (argc != 6) {
-    std::cout<<"5 arguments expected: \n 1: location of UnOsc pruned Ntuple file \n 2: location/filename for data spectrum to fit \n 3: location/filename for reactor info file \n 4: filename of temporary TFile needed to oscillate Ntuple \n 5: filename of output\
- plot"<<std::endl;
+  if (argc != 15) {
+    std::cout<<"15 arguments expected: \n 1: location of UnOsc pruned Ntuple file \n 2: location/filename for data spectrum to fit \n 3: location/filename for reactor info file \n 4: filename of temporary TFile needed to oscillate Ntuple \n 5: filename of output plot \n  \n 6: nhit1Min \n 7: nhit1Max\n 8: nhit2Min \n 9: nhit2Max\n 10: E1Min \n 11: E1Max\n 12: E2Min \n 13: E2Max \n 14: deltaT (in ns) "<<std::endl;
   }
   else{
     //desired flux/MC produced flux
-    double fluxfrac = 0.01;
-    
-    int NhitPrompt = 100;
-    int NhitDelayed = 100;
-    int deltaT = 1e6;
-
+    double fluxfrac = 1;
+    /*
     double s12min = 0.025;
     double s12max = 1.;
-    double d21min = 6.0e-5;
-    double d21max = 8.8e-5;
+    double d21min = 6.0e-5;//3.2e-5;
+    double d21max = 8.8e-5;//6.e-5;
     
     double s12int = 0.025;
     double d21int = 0.05e-5;
+    */
     
-    /*
     double s12min = 0.2;
     double s12max = 0.4;
     double d21min = 6e-5;
@@ -422,7 +440,7 @@ int main(int argc, char *argv[]) {
     
     double s12int = 0.05;
     double d21int = 0.5e-5;
-    */
+    
     double Emin = 2;
     double Emax = 8;
     int numbins = 30;
@@ -449,7 +467,17 @@ int main(int argc, char *argv[]) {
     argParser << argv[5];
     int numexps;
     argParser >> numexps;
-
+    
+    int nhit1Min = atoi(argv[6]);
+    int nhit1Max = atoi(argv[7]);
+    int nhit2Min = atoi(argv[8]);
+    int nhit2Max = atoi(argv[9]);
+    double E1Min = atof(argv[10]);
+    double E1Max = atof(argv[11]);
+    double E2Min = atof(argv[12]);
+    double E2Max = atof(argv[13]);
+    double deltaT = atof(argv[14]);
+    
     std::vector<std::string> reactorNames;
     std::vector<double> distances;
     std::vector<std::string> reactorTypes;
@@ -479,7 +507,7 @@ int main(int argc, char *argv[]) {
 	std::cout<<""<<std::endl;
 	std::cout<<"bin x: "<<i<<"    (from "<<1<<" to "<<num_s12<<")"<<std::endl;
 	std::cout<<"bin y: "<<j<<"    (from "<<1<<" to "<<num_d21<<")"<<std::endl;
-	double LHval = LHFit(UnOscfile,dataFile,tempFile,numPdfs,reactorNames,distances,fluxfrac,numbins,Emin,Emax,Normmin,Normmax,d21,s12,NhitPrompt,NhitDelayed,deltaT);
+	double LHval = LHFit(UnOscfile,dataFile,tempFile,numPdfs,reactorNames,distances,fluxfrac,numbins,Emin,Emax,Normmin,Normmax,d21,s12,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT);
 	LHmean += LHval;	
 	h2->SetBinContent(i,j,LHval);
 	//printf("-------------------------------------------------------------------------------------\n");
@@ -490,7 +518,7 @@ int main(int argc, char *argv[]) {
     int numreplaced = 0;
     double delLHval = 13;
     std::cout<<"LHmean: "<<LHmean<<std::endl;
-    for (int i=1; i < num_s12+1; i++){
+    /*for (int i=1; i < num_s12+1; i++){
       for (int j=1; j < num_d21+1; j++){
 	LHvalTemp = h2->GetBinContent(i,j);
 	if (abs(LHvalTemp - LHmean) > delLHval){
@@ -498,7 +526,7 @@ int main(int argc, char *argv[]) {
 	  numreplaced += 1;
 	}
       }
-    }
+      }*/
     
     h2->GetXaxis()->SetTitle("(sintheta12)^2");
     h2->GetXaxis()->SetTitleSize(0.05);

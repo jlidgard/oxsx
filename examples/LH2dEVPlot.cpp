@@ -57,7 +57,7 @@ double probability(double nuE, double baseline, double delmsqr21, double sinsqrt
   return fOscProb;
 }
 
-//function to apply cuts to isolate positron and neutron events
+//Coincidence tagging - function to apply cuts to isolate positron and neutron events
 //At present, looking at the MC event number and EV index number to ensure no pairs are missed
 //(won't be like this for analysing data)
 void OscPromptE (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13, double Distance) {
@@ -68,9 +68,9 @@ void OscPromptE (const std::string infile, const std::string outfile, int nhit1M
   TNtuple* ntout = new TNtuple("nt","nt","E1");
   
   float MCentryb4, MCentry,nextMCentry;
-  float days,nextdays;
-  float secs;//,nextSec;
-  float nsecs;//,nextNSec;
+  float days;
+  float secs;
+  float nsecs;
   float nhit,nextnhit;
   float evindex, nextevindex;
   double timeD, DeltaR;
@@ -78,7 +78,7 @@ void OscPromptE (const std::string infile, const std::string outfile, int nhit1M
   float Energy,nextEnergy,parke,part1ke,part2ke;
   float posX,posY,posZ,nextposX,nextposY,nextposZ;
   float EVcount = 0;
-  //TVector3 VecR, nextVecR;
+  //TVector3 VecR, nextVecR;  //TVector3 doesn't seem to work, maybe need to add something to the compiler?
   double VecRMag,nextVecRMag;
   double time, nexttime;
   

@@ -7,24 +7,39 @@
 #include <Exceptions.h>
 #include <Formatter.hpp>
 #include <iostream>
+#include <vector>
 
-double 
+double
 BinnedNLLH::Evaluate(){
-    if(!fDataSet && !fCalculatedDataDist) 
+    if(!fDataSet && !fCalculatedDataDist)
         throw LogicError("BinnedNNLH function called with no data set and no DataDist! set one of these first");
-    
+
     if (!fCalculatedDataDist)
         BinData();
-    
+
     if(!fAlreadyShrunk){
         fDataDist = fPdfShrinker.ShrinkDist(fDataDist);
         fAlreadyShrunk = true;
     }
 
-    // Construct systematics 
-    fSystematicManager.Construct(); 
+    // Construct systematics
+    fSystematicManager.Construct();
     // Apply systematics
     fPdfManager.ApplySystematics(fSystematicManager);
+
+    fWorkingNormalisations.clear();
+    for (size_t i = 0; i < fPdfManager.GetNPdfs(); i++){
+      bool foundoscgroup = false;
+      std::string pdfname = fPdfManager.GetWorkingPdf(i).GetName();
+      std::vector<std::string>::iterator it = std::find(fOscPdfs.begin(),fOscPdfs.end(),pdfname);
+      if (it != fOscPdfs.end())
+	  foundoscgroup = true;
+
+      if (foundoscgroup)
+	     fWorkingNormalisations.push_back(fPdfManager.GetWorkingPdf(i).Integral());
+      else
+	     fWorkingNormalisations.push_back(1.);
+    }
 
     // Apply Shrinking
     fPdfManager.ApplyShrink(fPdfShrinker);
@@ -32,22 +47,22 @@ BinnedNLLH::Evaluate(){
     // loop over bins and calculate the likelihood
     double nLogLH = 0;
     for(size_t i = 0; i < fDataDist.GetNBins(); i++){
-        double prob = fPdfManager.BinProbability(i);
+      double prob = fPdfManager.BinProbability(i, fWorkingNormalisations);
         if(!prob)
             throw std::runtime_error("BinnedNLLH::Encountered zero probability bin!");
-        nLogLH -= fDataDist.GetBinContent(i) *  log(prob);        
+        nLogLH -= fDataDist.GetBinContent(i) *  log(prob);
     }
 
     // Extended LH correction
     const std::vector<double>& normalisations = fPdfManager.GetNormalisations();
     for(size_t i = 0; i < normalisations.size(); i++)
-        nLogLH += normalisations.at(i);
-            
+        nLogLH += fWorkingNormalisations.at(i) * normalisations.at(i);
+
     // Constraints
     for(std::map<std::string, QuadraticConstraint>::iterator it = fConstraints.begin();
         it != fConstraints.end(); ++it)
         nLogLH += it->second.Evaluate(fComponentManager.GetParameter(it->first));
-   
+
     return nLogLH;
 }
 
@@ -57,7 +72,7 @@ BinnedNLLH::BinData(){
     fDataDist.Empty();
     CutLog log(fCuts.GetCutNames());
     DistFiller::FillDist(fDataDist, *fDataSet, fCuts, log);
-    fCalculatedDataDist = true;    
+    fCalculatedDataDist = true;
     fSignalCutLog = log;
 }
 
@@ -65,8 +80,20 @@ void
 BinnedNLLH::AddDist(const std::vector<BinnedED>& pdfs, const std::vector<std::vector<std::string> >& sys_){
     if (pdfs.size() != sys_.size())
        throw DimensionError(Formatter()<<"BinnedNLLH:: #sys_ != #group_");
-    for (int i = 0; i < pdfs.size(); ++i)
+    for (int i = 0; i < pdfs.size(); ++i){
         AddDist( pdfs.at(i), sys_.at(i) );
+    }
+}
+
+void
+BinnedNLLH::AddDist(const std::vector<BinnedED>& pdfs, const std::vector<std::vector<std::string> >& sys_, const std::vector<bool> ifosc){
+    if (pdfs.size() != sys_.size())
+       throw DimensionError(Formatter()<<"BinnedNLLH:: #sys_ != #group_");
+    for (int i = 0; i < pdfs.size(); ++i){
+        AddDist( pdfs.at(i), sys_.at(i) );
+	    if (ifosc.at(i))
+	        fOscPdfs.push_back(pdfs.at(i).GetName());
+    }
 }
 
 void
@@ -76,10 +103,27 @@ BinnedNLLH::AddDist(const BinnedED& pdf_, const std::vector<std::string>& syss_)
 }
 
 void
+BinnedNLLH::AddDist(const BinnedED& pdf_, const std::vector<std::string>& syss_, const bool ifosc){
+    fPdfManager.AddPdf(pdf_);
+    fSystematicManager.AddDist(pdf_,syss_);
+    if (ifosc)
+      fOscPdfs.push_back(pdf_.GetName());
+}
+
+void
 BinnedNLLH::AddDist(const BinnedED& pdf_){
     fPdfManager.AddPdf(pdf_);
     fSystematicManager.AddDist(pdf_,"");
 }
+
+void
+BinnedNLLH::AddDist(const BinnedED& pdf_, const bool ifosc){
+    fPdfManager.AddPdf(pdf_);
+    fSystematicManager.AddDist(pdf_,"");
+    if (ifosc)
+      fOscPdfs.push_back(pdf_.GetName());
+}
+
 void
 BinnedNLLH::AddPdf(const BinnedED& pdf_){
     AddDist(pdf_);
@@ -95,12 +139,12 @@ BinnedNLLH::SetSystematicManager(const SystematicManager& man_){
     fSystematicManager = man_;
 }
 
-void 
+void
 BinnedNLLH::AddSystematic(Systematic* sys_){
     fSystematicManager.Add(sys_);
 }
 
-void 
+void
 BinnedNLLH::AddSystematic(Systematic* sys_, const std::string&  group_){
     fSystematicManager.Add(sys_, group_);
 }
@@ -126,7 +170,6 @@ BinnedED
 BinnedNLLH::GetDataDist() const{
     return fDataDist;
 }
-
 
 void
 BinnedNLLH::SetBuffer(size_t dim_, unsigned lower_, unsigned upper_){
@@ -163,7 +206,7 @@ BinnedNLLH::AddSystematics(const std::vector<Systematic*> sys_, const std::vecto
 }
 
 void
-BinnedNLLH::SetNormalisations(const std::vector<double>& norms_){    
+BinnedNLLH::SetNormalisations(const std::vector<double>& norms_){
     fPdfManager.SetNormalisations(norms_);
 }
 
@@ -177,16 +220,15 @@ BinnedNLLH::AddCut(const Cut& cut_){
     fCuts.AddCut(cut_);
 }
 
-void 
+void
 BinnedNLLH::SetCuts(const CutCollection& cuts_){
     fCuts = cuts_;
 }
 
-void 
+void
 BinnedNLLH::SetConstraint(const std::string& paramName_, double mean_, double sigma_){
     fConstraints[paramName_] = QuadraticConstraint(mean_, sigma_);
 }
-
 
 double
 BinnedNLLH::GetSignalCutEfficiency() const{
@@ -203,6 +245,11 @@ BinnedNLLH::GetSignalCutLog() const{
     return fSignalCutLog;
 }
 
+std::vector<double>
+BinnedNLLH::GetWorkingNormalisations() const{
+   return fWorkingNormalisations;
+}
+
 void
 BinnedNLLH::SetSignalCutLog(const CutLog& lg_){
     fSignalCutLog = lg_;
@@ -215,7 +262,7 @@ void
 BinnedNLLH::RegisterFitComponents(){
     fComponentManager.Clear();
     fComponentManager.AddComponent(&fPdfManager);
-    
+
     //Because the limits are set by name they can be added in any order.
     const std::map<std::string, std::vector<Systematic*> > sys_ = fSystematicManager.GetSystematicsGroup();
     std::vector<std::string> alreadyAdded;
@@ -229,7 +276,6 @@ BinnedNLLH::RegisterFitComponents(){
     }//End of groups
 }
 
-
 void
 BinnedNLLH::SetParameters(const ParameterDict& params_){
     try{
@@ -239,7 +285,7 @@ BinnedNLLH::SetParameters(const ParameterDict& params_){
         throw ParameterError(std::string("BinnedNLLH::") + e_.what());
     }
 }
-                                             
+
 ParameterDict
 BinnedNLLH::GetParameters() const{
     return fComponentManager.GetParameters();

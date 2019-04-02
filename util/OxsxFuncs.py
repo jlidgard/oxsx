@@ -15,7 +15,7 @@ ENVIRONMENT_PATH = "/home/blakei/env_rat-6.3.6.sh"
 def PruneforCoincTag():
     subprocess.check_call(("""source {0}
 cd ~/oxsx/util/
-. ~/oxsx/bin/compile_with_ratIwan.sh prune_for_coinctag.cpp
+. ~/oxsx/bin/compile_with_rat.sh prune_for_coinctag.cpp
 ./prune_for_coinctag '/data/snoplus/blakei/antinu/mc/rootfiles/Bruce_LAB_5day_flux1000_s*' /data/snoplus/blakei/antinu/test/PrunedBruce5yr1000flux.root""").format(ENVIRONMENT_PATH), shell = True)
 #arguments:                           input root                                                                       output pruned ntuple
 
@@ -23,14 +23,14 @@ cd ~/oxsx/util/
 def FakeDataEPrompt():
     subprocess.check_call(("""source {0}
 cd ~/oxsx/util/
-. ~/oxsx/bin/compile_with_ratIwan.sh prune_to_KE_EPrompt.cpp
+. ~/oxsx/bin/compile_with_rat.sh prune_to_KE_EPrompt.cpp
 ./prune_to_KE_EPrompt /data/snoplus/blakei/antinu/test/PrunedBruce5yr1000flux.root /data/snoplus/blakei/antinu/test/Bruce5yr1000flux 500 4000 850 1300 1. 8. 1.6 2.2 1e6 7.4e-5 0.297 0.0215 E1""").format(ENVIRONMENT_PATH), shell = True)
 #arguments:                    input pruned ntp                                     output _oxsx fake data ntuple(no .root)   nhit1min nhit1max nhit2min nhit2max E1min E1max E2min E2max deltaT d21 s12 s13 E1orKE
 
 def FakeDataKE():
     subprocess.check_call(("""source {0}
 cd ~/oxsx/util/
-. ~/oxsx/bin/compile_with_ratIwan.sh prune_to_KE_EPrompt.cpp
+. ~/oxsx/bin/compile_with_rat.sh prune_to_KE_EPrompt.cpp
 ./prune_to_KE_EPrompt /data/snoplus/blakei/antinu/test/PrunedBruce5yr1000flux.root /data/snoplus/blakei/antinu/test/Bruce5yr1000flux 500 4000 850 1300 1. 8. 1.6 2.2 1e6 7.4e-5 0.297 0.0215 KE""").format(ENVIRONMENT_PATH), shell = True)
 #arguments:                    input pruned ntp                                    output _oxsx fake data ntuple(no .root)   nhit1min nhit1max nhit2min nhit2max E1min E1max E2min E2max deltaT d21 s12 s13 E1orKE
 
@@ -38,7 +38,7 @@ cd ~/oxsx/util/
 def OscEPrompt():
     subprocess.check_call(("""source {0}
 cd ~/oxsx/util/
-. ~/oxsx/bin/compile_with_ratIwan.sh OscEPrompt.cpp
+. ~/oxsx/bin/compile_with_rat.sh OscEPrompt.cpp
 ./OscEPrompt /data/snoplus/blakei/antinu/test/PrunedBruce5yr1000flux.root EPromptOut.root 500 4000 850 1300 1. 8. 1.6 2.2 1e6 7.4e-5 0.297 0.0215 MC""").format(ENVIRONMENT_PATH), shell = True)
 #arguments:                    input pruned ntp                  output _oxsx fake data ntuple     nhit1min nhit1max nhit2min nhit2max E1min E1max E2min E2max deltaT d21 s12 s13 MCorData looping method
 

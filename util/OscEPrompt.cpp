@@ -9,6 +9,7 @@
 #include <TH1D.h>
 #include <TH2D.h>
 #include <sstream>
+
 double NuSurvProb(double nuE, double baseline, double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
   double fSSqr2Theta12 = pow(sin(2.0 * TMath::ASin(sqrt(sinsqrtheta12))), 2.0);
   double fS4 = pow(sinsqrtheta13, 2.0);
@@ -19,23 +20,18 @@ double NuSurvProb(double nuE, double baseline, double delmsqr21, double sinsqrth
   return fOscProb;
 }
 
-void OscPromptE_Evindex (const std::string infile, const std::string fileout, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT, double PromptRmax, double LateRmax, double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
+bool applyosc;
+
+void OscPromptE_Evindex (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
   TFile *fin = TFile::Open(infile.c_str());
   TNtuple *T = (TNtuple *) fin->Get("nt");
-
-  bool applyosc;
+ 
   std::stringstream sout;
-  if (delmsqr21 > 0 || sinsqrtheta12 > 0 || sinsqrtheta13 >0){
-    sout<<fileout<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<"_oxsx.root";
-    applyosc = true;
-  }
-  else{
-    sout<<fileout<<"_oxsx.root";
-    applyosc = false;
-  }
-  TFile *fout = new TFile(sout.str().c_str(),"RECREATE");
-  TNtuple* ntout = new TNtuple("nt","nt","E1");
-  
+  if (applyosc)
+    sout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root";
+  else
+    sout<<outfile<<".root";
+ 
   float ReactorDistance;
   float MCentryb4, MCentry,nextMCentry;
   float days,nextdays;
@@ -46,9 +42,10 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
   double timeD, DeltaR;
   float Fitted, nextFitted;
   float Energy,nextEnergy,parke,part1ke,part2ke;
-  float posX,posY,posZ;
+  float posX,posY,posZ,nextposX,nextposY,nextposZ;
   float EVcount = 0;
-  TVector3 VecR,nextVecR;
+  //TVector3 VecR,nextVecR;
+  double VecRMag,nextVecRMag;
   double time, nexttime;
   
   int mccount = 0;
@@ -56,7 +53,6 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
   int EV01 = 0;
   int EV02 = 0;
   int EV03 = 0;
-  //int EV02 = 0;
   
   T->SetBranchAddress("MCentry", &MCentry);
   T->SetBranchAddress("Evindex", &evindex);
@@ -71,8 +67,30 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
   T->SetBranchAddress("posx", &posX);
   T->SetBranchAddress("posy", &posY);
   T->SetBranchAddress("posz", &posZ);
+  T->SetBranchAddress("posz", &posZ);
   T->SetBranchAddress("Fitted", &Fitted);
   T->SetBranchAddress("ReactorDistance", &ReactorDistance);
+
+  TH1D deltaTimeEVindex("deltaTEVindex","deltaTEVindex (ns)",100,0,1000000);
+  TH1D deltaREVindex("deltaREVindex","deltaREVindex (mm)",300,0,3000);
+  TH1D E1EVindex("E1EVindex", "E1EVindex (MeV)", 300, 0, 9);
+  TH1D E2EVindex("E2EVindex", "E2EVindex (MeV)", 300, 0, 9);
+  TH1D Nhit1("Nhit1", "Nhit1", 350, 0, 3500);
+  TH1D Nhit2("Nhit2", "Nhit2", 200, 0, 2000);
+  TH1D KEPar("KEPar", "KEPar", 100, 0, 8);
+  TH1D KEPart1("KEPart1", "KEPart1 (MeV)", 100, 0, 8);
+  TH1D KEPart2("KEPart2", "KEPart2 (MeV)", 200, 0, 2);
+  TH1D nubarKE_posKE("nubarKE_posKE", "nubarKE_posKE (MeV)", 300, 0, 3);
+  TH1D nubarKE_E1("nubarKE_E1", "nubarKE_E1 (MeV)", 300, 0, 3);
+
+  TH1D deltaTime("deltaT","deltaT (ns)",100,0,1000000);
+  TH1D deltaR("deltaR","deltaR (mm)",300,0,3000);
+  TH1D EPrompt("EPrompt", "EPrompt (MeV)", 300, 0, 9);
+  TH1D ELate("E2Late", "E2Late (MeV)", 300, 0, 9);
+  TH1D NhitPrompt("NhitPrompt", "NhitPrompt", 350, 0, 3500);
+  TH1D NhitLate("NhitLate", "NhitLate", 200, 0, 2000);
+  
+  TH2D h2("antinuKEvsEPrompt","antinuKEvsEPrompt",300,0,9,300,0,9);
 
   double survprob;
   TRandom3 *r1 = new TRandom3();
@@ -111,19 +129,25 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
 	  nextnhit = nhit;
 	  nextevindex = evindex;
 	  nextEnergy = Energy;
-	  nextVecR = TVector3(posX,posY,posZ);
+	  nextposX = posX;
+	  nextposY = posY;
+	  nextposZ = posZ;
+	  nextVecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
+	  //nextVecR = TVector3(posX,posY,posZ);
 	  
 	  T->GetEntry(i-EVcount+j);
 	  bool goodpair = false;
 	  timeD = 0;
 	  if (Fitted > 0 && nextFitted > 0){
-	    VecR = TVector3(posX,posY,posZ);
+	    //VecR = TVector3(posX,posY,posZ);
+	    VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
 	    time = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
 	    timeD = std::fabs(nexttime - time);
-	    DeltaR = (VecR-nextVecR).Mag();
+	    //DeltaR = (VecR-nextVecR).Mag();
+	    DeltaR = sqrt((pow(posX-nextposX,2))+(pow(posY-nextposY,2))+(pow(posZ-nextposZ,2)));
 	    if(timeD > 400 && timeD < deltaT){
-	      if (VecR.Mag() < PromptRmax){
-		if (nextVecR.Mag() < LateRmax){
+	      if (VecRMag < 5700){
+		if (nextVecRMag < 5700){
 		  if (DeltaR < 1500){
 		    if (E1Min <= Energy && Energy <= E1Max){
 		      if (E2Min <= nextEnergy &&nextEnergy <= E2Max){
@@ -135,14 +159,26 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
 			      survprob = 100;
 			    if (survprob > r1->Rndm()){
 			      mccount += 1;
-			      ntout->Fill(Energy);
 			      if (evindex == 0 && nextevindex == 1)
 				EV01 += 1;
 			      if (evindex == 0 && nextevindex == 2)
 				EV02 += 1;
 			      if (evindex == 0 && nextevindex == 3)
 				EV03 += 1;
-			    
+			      if (evindex == 0)
+				h2.Fill(Energy,parke);
+			      deltaTimeEVindex.Fill(timeD);
+			      deltaREVindex.Fill(DeltaR);
+			      E1EVindex.Fill(Energy);
+			      E2EVindex.Fill(nextEnergy);
+			      Nhit1.Fill(nhit);
+			      Nhit2.Fill(nextnhit);
+			      KEPar.Fill(parke);
+			      KEPart1.Fill(part1ke);
+			      KEPart2.Fill(part2ke);
+			      nubarKE_posKE.Fill(parke-part1ke);
+			      nubarKE_E1.Fill(parke-Energy);
+			      
 			      goodpair = true;  //pair passed quality cuts, if not continue search in group
 			      pairfound = true; // a pair was found
 			      k += 100; // cancel sub search
@@ -193,18 +229,24 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
       nextnhit = nhit;
       nextevindex = evindex;
       nextEnergy = Energy;
-      nextVecR = TVector3(posX,posY,posZ);
+      //nextVecR = TVector3(posX,posY,posZ);
+      nextposX = posX;
+      nextposY = posY;
+      nextposZ = posZ;
+      nextVecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
       
       T->GetEntry(lastentry+1-EVcount+j);
       bool goodpair = false;
       if (Fitted > 0 && nextFitted > 0){
-	VecR = TVector3(posX,posY,posZ);
+	//VecR = TVector3(posX,posY,posZ);
+	VecRMag = sqrt((pow(posX,2))+(pow(posY,2))+(pow(posZ,2)));
 	time = nsecs + (secs * pow(10, 9)) + (days * 24 * 3600 * pow(10, 9));
 	timeD = std::fabs(nexttime - time);
-	DeltaR = (VecR-nextVecR).Mag();
+	//DeltaR = (VecR-nextVecR).Mag();
+	DeltaR = sqrt((pow(posX-nextposX,2))+(pow(posY-nextposY,2))+(pow(posZ-nextposZ,2)));
 	if(timeD > 400 && timeD < deltaT){
-	  if (VecR.Mag() < PromptRmax){
-	    if (nextVecR.Mag() < LateRmax){
+	  if (VecRMag < 5700){
+	    if (nextVecRMag < 5700){
 	      if (DeltaR < 1500){
 		if (E1Min <= Energy && Energy <= E1Max){
 		  if (E2Min <= nextEnergy &&nextEnergy <= E2Max){
@@ -216,14 +258,27 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
 			  survprob = 100;
 			if (survprob > r1->Rndm()){
 			  mccount += 1;
-			  ntout->Fill(Energy);
+			  
 			  if (evindex == 0 && nextevindex == 1)
 			    EV01 += 1;
 			  if (evindex == 0 && nextevindex == 2)
 			    EV02 += 1;
 			  if (evindex == 0 && nextevindex == 3)
 			    EV03 += 1;
-			
+			  if (evindex == 0)
+			    h2.Fill(Energy,parke);
+			  deltaTimeEVindex.Fill(timeD);
+			  deltaREVindex.Fill(DeltaR);
+			  E1EVindex.Fill(Energy);
+			  E2EVindex.Fill(nextEnergy);
+			  Nhit1.Fill(nhit);
+			  Nhit2.Fill(nextnhit);
+			  KEPar.Fill(parke);
+			  KEPart1.Fill(part1ke);
+			  KEPart2.Fill(part2ke);
+			  nubarKE_posKE.Fill(parke-part1ke);
+			  nubarKE_E1.Fill(parke-Energy);
+		      	
 			  goodpair = true;  //pair passed quality cuts, if not continue search in group
 			  pairfound = true; // a pair was found
 			  k += 100; // cancel sub search
@@ -259,10 +314,26 @@ void OscPromptE_Evindex (const std::string infile, const std::string fileout, in
   
   std::cout<<"\n number of antinus simmed: "<<numsimmed<<std::endl;
   std::cout<<"MC partner events within deltaT: "<<mccount<<std::endl;
+
+  std::stringstream ssout;
+  ssout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root";
+  TFile fout(ssout.str().c_str(), "RECREATE");
+
+  deltaTimeEVindex.Write();
+  deltaREVindex.Write();
+  E1EVindex.Write();
+  E2EVindex.Write();
+  Nhit1.Write();
+  Nhit2.Write();
+  KEPar.Write();
+  KEPart1.Write();
+  KEPart2.Write();
+  nubarKE_posKE.Write();
+  nubarKE_E1.Write();
+
+  h2.Write();
   
-  ntout->Write();
-  fin->Close();
-  fout->Close();
+  fout.Close();
 }
 
 void OscPrunedNtuple (const std::string infile, const std::string outfile,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
@@ -278,10 +349,7 @@ void OscPrunedNtuple (const std::string infile, const std::string outfile,  doub
   T->SetBranchAddress("ReactorDistance", &ReactorDistance);
 
   std::stringstream ssout;
-  if (delmsqr21 > 0 || sinsqrtheta12 > 0 || sinsqrtheta13 >0)
-    ssout<<outfile<<"_temp_ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<"_oxsx.root";
-  else
-    ssout<<outfile<<"_oxsx.root";
+  ssout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root";
   TFile *fout = new TFile(ssout.str().c_str(),"RECREATE");
   TTree *outT = T->CloneTree(0);
   
@@ -336,21 +404,21 @@ void OscPrunedNtuple (const std::string infile, const std::string outfile,  doub
 }
 
 
-void PromptE_Data (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT, double PromptRmax, double LateRmax, double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
-  OscPrunedNtuple(infile,outfile,delmsqr21,sinsqrtheta12, sinsqrtheta13);  
+void PromptE_Data (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
+  
+  std::stringstream ssout;
 
-  std::stringstream ssouttemp;
-  ssouttemp<<outfile<<"_temp_ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<"_oxsx.root";
-
-  TFile *fin = TFile::Open(ssouttemp.str().c_str());
+  if (applyosc){
+    OscPrunedNtuple(infile,outfile,delmsqr21,sinsqrtheta12, sinsqrtheta13);  
+    
+    ssout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root"; 
+  }
+  else{
+    ssout<<infile<<".root"; 
+  }
+  TFile *fin = TFile::Open(ssout.str().c_str());
   TNtuple *T = (TNtuple *) fin->Get("nt");
 
-  std::stringstream ssout;
-  ssout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<"_oxsx.root";
-
-  TFile *fout = new TFile(ssout.str().c_str(),"RECREATE");
-  TNtuple* ntout = new TNtuple("nt","nt","E1");
-  
   float ReactorDistance;
   float days,nextdays;
   float secs;
@@ -380,6 +448,13 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
   T->SetBranchAddress("Fitted", &Fitted);
   T->SetBranchAddress("ReactorDistance", &ReactorDistance);
 
+  TH1D deltaTime("deltaT","deltaT (ns)",100,0,1000000);
+  TH1D deltaR("deltaR","deltaR (mm)",300,0,3000);
+  TH1D EPrompt("EPrompt", "EPrompt (MeV)", 300, 0, 9);
+  TH1D ELate("E2Late", "E2Late (MeV)", 300, 0, 9);
+  TH1D NhitPrompt("NhitPrompt", "NhitPrompt", 350, 0, 3500);
+  TH1D NhitLate("NhitLate", "NhitLate", 200, 0, 2000);
+  
   std::cout<<"\n \n Data: "<<std::endl;
   ///////////////////////////////////
   ///////      For Data     /////////
@@ -390,8 +465,6 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
     int j = 1;
     float time_diff_condition = 0;
     bool pairfound = false;
-    //bool keeptrying = false;
-    //bool KeepTrying = true;
     while(time_diff_condition < deltaT){
       T->GetEntry(i+j);
       nextdays = days;
@@ -416,15 +489,20 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
 	//DeltaR = (VecR-nextVecR).Mag();
 	DeltaR = sqrt((pow(posX-nextposX,2))+(pow(posY-nextposY,2))+(pow(posZ-nextposZ,2)));
 	if(timeD > 400 && timeD < deltaT){
-	  if (VecRMag < PromptRmax){
-	    if (nextVecRMag < LateRmax){
+	  if (VecRMag < 5700){
+	    if (nextVecRMag < 5700){
 	      if (DeltaR < 1500){
 	      	if (E1Min <= Energy && Energy <= E1Max){
 		  if (E2Min <= nextEnergy &&nextEnergy <= E2Max){
 		    if (nhit1Min <= nhit  && nhit <= nhit1Max){
 		      if (nhit2Min <= nextnhit && nextnhit <= nhit2Max){
 			evcount += 1;
-			ntout->Fill(Energy);
+			deltaTime.Fill(timeD);
+			deltaR.Fill(DeltaR);
+			EPrompt.Fill(Energy);
+			ELate.Fill(nextEnergy);
+			NhitPrompt.Fill(nhit);
+			NhitLate.Fill(nextnhit);
 			
 			pairgood = true;
 			pairfound = true;
@@ -444,9 +522,6 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
 	  pairfound = false;
 	  time_diff_condition = deltaT + 1e10;
 	}
-	//if (Fitted >= 0 && nextFitted <= 0){
-	//KeepTrying = keeptrying;
-	//}
 	else{
 	  time_diff_condition = timeD;
 	}
@@ -462,20 +537,25 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
   
   std::cout<<"EV partner events within deltaT: "<<evcount<<std::endl;
   
-  ntout->Write();
-  fin->Close();
-  fout->Close();
+  TFile fout(ssout.str().c_str(), "RECREATE");
+
+  deltaTime.Write();
+  deltaR.Write();
+  EPrompt.Write();
+  ELate.Write();
+  NhitPrompt.Write();
+  NhitLate.Write();
+  
+  fout.Close();
 }
-
-
 
 int main(int argc, char *argv[])
 {
-  if (argc < 13){
-    std::cout<<"14 (12) arguments expected: \n 1: input pruned ntuple \n 2: \
-output ntuple with single entry EPrompt (UP TO .root!!)\n  \n 3: nhit1Min \n 4: nhit1Max\n 5: nhit2Min \n 6: nhit2Max\n 7: E1Min \n 8: E1Max\n 9: E2Min \n 10: E2Max \n 11: deltaT (in ns) \n (12: Data or MC) \n 12: delmsqr21 \n 13: sinsqrtheta12 \n 14:sinsqrtheta13 \n \n 15: Data or MC"<<std::endl;
+  if (argc < 16){
+    std::cout<<"15 (12) arguments expected: \n 1: input ntuple \n 2: \
+output file with hists  (UP TO .root !!!) \n  \n 3: nhit1Min \n 4: nhit1Max\n 5: nhit2Min \n 6: nhit2Max\n 7: E1Min \n 8: E1Max\n 9: E2Min \n 10: E2Max \n 11: deltaT (in ns) \n (12: Data or MC) \n 12: delmsqr21 \n 13: sinsqrtheta12 \n 14:sinsqrtheta13 \n \n 15: Data or MC "<<std::endl;
   }else{
-    
+    //std::stringstream argParser;
     const std::string &infile = argv[1];
     const std::string &outfile = argv[2];
     int nhit1Min = atoi(argv[3]);
@@ -487,7 +567,7 @@ output ntuple with single entry EPrompt (UP TO .root!!)\n  \n 3: nhit1Min \n 4: 
     double E2Min = atof(argv[9]);
     double E2Max = atof(argv[10]);
     double deltaT = atof(argv[11]);
-
+    
     double delmsqr21, sinsqrtheta12, sinsqrtheta13;
     std::string DataMC;
     if (argc == 13){
@@ -504,15 +584,15 @@ output ntuple with single entry EPrompt (UP TO .root!!)\n  \n 3: nhit1Min \n 4: 
       
       DataMC= argv[15];
     }
+    
     double PromptRmax = 5700;
     double LateRmax = 5700;
 
     if (DataMC == "MC")
-      OscPromptE_Evindex(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,PromptRmax,LateRmax,delmsqr21,sinsqrtheta12,sinsqrtheta13);
+      OscPromptE_Evindex(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13);
     else if (DataMC == "Data")
-      PromptE_Data(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,PromptRmax,LateRmax,delmsqr21,sinsqrtheta12,sinsqrtheta13);
+      PromptE_Data(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13);
     else
       std::cout<<"\n Looking at 'Data' or 'MC'";
-    //OscPromptE(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13);
   }
 }

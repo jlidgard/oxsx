@@ -20,18 +20,17 @@ double NuSurvProb(double nuE, double baseline, double delmsqr21, double sinsqrth
   return fOscProb;
 }
 
-bool applyosc;
-
-void OscPromptE_Evindex (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
+void OscPromptE_Evindex (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13,bool applyosc) {
   TFile *fin = TFile::Open(infile.c_str());
   TNtuple *T = (TNtuple *) fin->Get("nt");
  
   std::stringstream sout;
   if (applyosc)
     sout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root";
-  else
+  else{
     sout<<outfile<<".root";
- 
+    std::cout<<"NO OSC"<<std::endl;
+  }
   float ReactorDistance;
   float MCentryb4, MCentry,nextMCentry;
   float days,nextdays;
@@ -315,9 +314,7 @@ void OscPromptE_Evindex (const std::string infile, const std::string outfile, in
   std::cout<<"\n number of antinus simmed: "<<numsimmed<<std::endl;
   std::cout<<"MC partner events within deltaT: "<<mccount<<std::endl;
 
-  std::stringstream ssout;
-  ssout<<outfile<<"ds21_"<<delmsqr21<<"_ss12_"<<sinsqrtheta12<<"_ss13_"<<sinsqrtheta13<<".root";
-  TFile fout(ssout.str().c_str(), "RECREATE");
+  TFile fout(sout.str().c_str(), "RECREATE");
 
   deltaTimeEVindex.Write();
   deltaREVindex.Write();
@@ -404,7 +401,7 @@ void OscPrunedNtuple (const std::string infile, const std::string outfile,  doub
 }
 
 
-void PromptE_Data (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13) {
+void PromptE_Data (const std::string infile, const std::string outfile, int nhit1Min, int nhit1Max, int nhit2Min, int nhit2Max, double E1Min, double E1Max, double E2Min, double E2Max, double deltaT,  double delmsqr21, double sinsqrtheta12, double sinsqrtheta13, bool applyosc) {
   
   std::stringstream ssout;
 
@@ -551,7 +548,7 @@ void PromptE_Data (const std::string infile, const std::string outfile, int nhit
 
 int main(int argc, char *argv[])
 {
-  if (argc < 16){
+  if (argc < 13){
     std::cout<<"15 (12) arguments expected: \n 1: input ntuple \n 2: \
 output file with hists  (UP TO .root !!!) \n  \n 3: nhit1Min \n 4: nhit1Max\n 5: nhit2Min \n 6: nhit2Max\n 7: E1Min \n 8: E1Max\n 9: E2Min \n 10: E2Max \n 11: deltaT (in ns) \n (12: Data or MC) \n 12: delmsqr21 \n 13: sinsqrtheta12 \n 14:sinsqrtheta13 \n \n 15: Data or MC "<<std::endl;
   }else{
@@ -570,12 +567,14 @@ output file with hists  (UP TO .root !!!) \n  \n 3: nhit1Min \n 4: nhit1Max\n 5:
     
     double delmsqr21, sinsqrtheta12, sinsqrtheta13;
     std::string DataMC;
+    bool ApplyOsc;
     if (argc == 13){
       delmsqr21 = 0;
       sinsqrtheta12 = 0;
       sinsqrtheta13 = 0;
 
       DataMC = argv[12];
+      ApplyOsc = false;
     }
     else{
       delmsqr21 = atof(argv[12]);
@@ -583,16 +582,23 @@ output file with hists  (UP TO .root !!!) \n  \n 3: nhit1Min \n 4: nhit1Max\n 5:
       sinsqrtheta13 = atof(argv[14]);
       
       DataMC= argv[15];
+      ApplyOsc = true;
     }
     
     double PromptRmax = 5700;
     double LateRmax = 5700;
 
-    if (DataMC == "MC")
-      OscPromptE_Evindex(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13);
-    else if (DataMC == "Data")
-      PromptE_Data(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13);
-    else
+    if (DataMC == "MC"){
+      if (ApplyOsc)
+	OscPromptE_Evindex(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13,true);
+      else
+	OscPromptE_Evindex(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13,false);
+    }else if (DataMC == "Data"){
+      if (ApplyOsc)
+	PromptE_Data(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13,true);
+      else
+	PromptE_Data(infile,outfile,nhit1Min,nhit1Max,nhit2Min,nhit2Max,E1Min,E1Max,E2Min,E2Max,deltaT,delmsqr21,sinsqrtheta12,sinsqrtheta13,false);
+    }else
       std::cout<<"\n Looking at 'Data' or 'MC'";
   }
 }

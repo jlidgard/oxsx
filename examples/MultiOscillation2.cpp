@@ -5,12 +5,10 @@
 #include <Rand.h>
 #include <fstream>
 #include <iostream>
-
 #include <TCanvas.h>
 #include <ROOTNtuple.h>
 #include <TRandom3.h>
 #include <TH1D.h>
-
 #include <BinnedED.h>
 #include <BinnedEDGenerator.h>
 #include <SystematicManager.h>

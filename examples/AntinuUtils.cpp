@@ -114,7 +114,7 @@ void readParameterFile(const std::string &runParameterFileName, std::vector<Doub
 }
 
 BinnedED LHFit_initialise(BinnedED **spectra_pdf, Double_t *reactor_scale, const std::string &in_path, const std::string &data_path, std::vector<std::string> &reactor_names, ULong64_t flux_data){
-    
+
     printf("Begin init--------------------------------------\n");
     printf("LHFit_initialise...\n");
 
@@ -133,8 +133,8 @@ BinnedED LHFit_initialise(BinnedED **spectra_pdf, Double_t *reactor_scale, const
     const std::string pwr_unosc_path = std::string(name);
     sprintf(name, "%sflux%llu/%s_flux%llu_day360_cleanround1_ke_oxsx.root", in_path.c_str(), flux_mc, phwr_file.c_str(), flux_mc);
     printf("\ttype PHWR: %s\n", name);
-    const std::string phwr_unosc_path = std::string(name);    
-    
+    const std::string phwr_unosc_path = std::string(name);
+
     // setup (oscillated) data filename
     sprintf(name, "%s", data_path.c_str());
     printf("Loading data spectrum: %s\n\n", name);
@@ -177,7 +177,7 @@ BinnedED LHFit_initialise(BinnedED **spectra_pdf, Double_t *reactor_scale, const
         reactor_integrals[i] = reactor_pdf->Integral(); //record the integral
         reactor_scale[i] = reactor_integrals[i];
     }
-    
+
     for(ULong64_t i = 0; i < n_pdf; i++){
     	printf("Loading reactor: %s\t(unosc)integral:%.3f\n", reactor_names[i].c_str(), reactor_scale[i]);
     }
@@ -230,13 +230,13 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, BinnedED **spectra_pdf, BinnedNLLH &l
     int buff = 2;
     lh_function.SetBuffer(0, buff, buff);
     lh_function.SetDataDist(data_set_pdf); // initialise withe the data set
-    
+
     // setup max and min ranges
     ParameterDict minima;
     ParameterDict maxima;
     ParameterDict initial_val;
     ParameterDict initial_err;
-    
+
     //double param_d21 = 6.9e-5;//kamland#1=6.9e-5;//us=7.58e-5;
     //double param_s12 = 0.5359;
     //double param_s13 = 0.02303;

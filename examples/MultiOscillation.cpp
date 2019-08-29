@@ -34,6 +34,7 @@
 
 Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unosc_filepath,
     const std::string &spectrum_pwr_unosc_filepath, const std::string &spectrum_further_unosc_filepath,
+    const spectrum_geonu_th_unosc_filepath, const spectrum_geonu_u_unosc_filepath, const spectrum_bkg_accidentals_unosc_filepath,
     std::vector<std::string> &reactor_names, std::vector<std::string> &reactor_types,
     std::vector<Double_t> &constraint_means, std::vector<Double_t> &constraint_sigmas,
     TFile *file_out,
@@ -87,12 +88,16 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
         reactor_osc_pdf[i] = new BinnedED(reactor_names[i], axes);
         reactor_osc_pdf[i]->SetObservables(0);
 
-        if ((reactor_types[i]=="PWR")||(reactor_types[i]=="BWR"))
+        if ((reactor_types[i]=="PWR")||(reactor_types[i]=="BWR")||(reactor_types[i]=="further_reactors"))
             sprintf(name, "%s", spectrum_pwr_unosc_filepath.c_str());
         else if (reactor_types[i]=="PHWR")
             sprintf(name, "%s", spectrum_phwr_unosc_filepath.c_str());
-        else if (reactor_types[i]=="further_reactors") // if reactor type is the set of further reactors
-            sprintf(name, "%s", spectrum_further_unosc_filepath.c_str());
+        else if (reactor_types[i]=="geonu_uranium") // if reactor type is the set of further reactors
+            sprintf(name, "%s", spectrum_geonu_u_unosc_filepath.c_str());
+        else if (reactor_types[i]=="geonu_thorium") // if reactor type is the set of further reactors
+            sprintf(name, "%s", spectrum_geonu_th_unosc_filepath.c_str());
+        else if (reactor_types[i]=="bkg_accidentals") // if reactor type is the set of further reactors
+            sprintf(name, "%s", spectrum_bkg_accidentals_unosc_filepath.c_str());
         else{
             printf("Throw: Reactor doesn't match any loaded type...\n");
             exit(0); // throw std::exception(); //continue;
@@ -106,11 +111,14 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
         TNtuple *reactor_osc_ntp = new TNtuple("nt", "Oscillated Prompt Energy", "ev_fit_energy_p1");
 
         // oscillate tree
-        if (reactor_types[i]=="further_reactors")
-            ntOscillate_pruned(reactor_unosc_ntp, reactor_osc_ntp, param_d21, param_s12, param_s13, 10000);
-        else
+        if ((reactor_types[i]=="PWR")||(reactor_types[i]=="BWR")||(reactor_types[i]=="PHWR"))
             ntOscillate_pruned(reactor_unosc_ntp, reactor_osc_ntp, param_d21, param_s12, param_s13);
-
+        else if (reactor_types[i]=="further_reactors")
+            ntOscillate_summed_pruned(reactor_unosc_ntp, reactor_osc_ntp, param_s12);
+        else{
+            printf("Throw: Reactor doesn't match any loaded type...\n");
+            exit(0); // throw std::exception(); //continue;
+        }
         // reset branch addresses after oscillating in function (otherwise crash before setting again below..)
         reactor_unosc_ntp->SetBranchStatus("*", 0);
         reactor_unosc_ntp->SetBranchStatus("ev_fit_energy_p1", 1); // (re-enable all branches in use)
@@ -124,20 +132,22 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
         }
 
         // fill oscillated pdf
-        Float_t ev_osc_energy_p1;
-        reactor_osc_ntp->SetBranchAddress("ev_fit_energy_p1", &ev_osc_energy_p1);
-        for(size_t j = 0; j < reactor_osc_ntp->GetEntries(); j++){
-            reactor_osc_ntp->GetEntry(j);
-            reactor_osc_pdf[i]->Fill(ev_osc_energy_p1);
+        Double_t osc_loss = 1;
+        if ((reactor_types[i]=="PWR")||(reactor_types[i]=="BWR")||(reactor_types[i]=="PHWR")||(reactor_types[i]=="further_reactors")){
+            Float_t ev_osc_energy_p1;
+            reactor_osc_ntp->SetBranchAddress("ev_fit_energy_p1", &ev_osc_energy_p1);
+            for(size_t j = 0; j < reactor_osc_ntp->GetEntries(); j++){
+                reactor_osc_ntp->GetEntry(j);
+                reactor_osc_pdf[i]->Fill(ev_osc_energy_p1);
+            }
+            // work out total oscillated integral of constraints
+            Double_t normalisation_unosc = reactor_unosc_pdf[i]->Integral();
+            Double_t normalisation_reactor = reactor_osc_pdf[i]->Integral();
+            osc_loss = normalisation_reactor/normalisation_unosc;
         }
-
+    
         // close unoscillated reactor file
         f_in->Close();
-
-        // work out total oscillated integral of constraints
-        Double_t normalisation_unosc = reactor_unosc_pdf[i]->Integral();
-        Double_t normalisation_reactor = reactor_osc_pdf[i]->Integral();
-        Double_t osc_loss = normalisation_reactor/normalisation_unosc;
 
         Double_t constraint_osc_mean = constraint_means[i]*osc_loss*mc_scale_factor;
         Double_t constraint_osc_sigma = (constraint_sigmas[i]/constraint_means[i])*constraint_osc_mean; //pow(pow(constraint_sigmas[i]/constraint_means[i],2)+pow(constraint_sigmas[n_pdf]/constraint_means[n_pdf],2),0.5)*contribution_factor;
@@ -153,7 +163,7 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
         minima[name] = min;
         maxima[name] = max;
         printf("  added reactor %d/%d: %s, norm: %.3f (min:%.3f max:%.3f) err: %.3f data_int:%.0f\n", i+1, n_pdf, reactor_names[i].c_str(), constraint_osc_mean, min, max, constraint_osc_sigma, data_set_pdf_integral);
-        Double_t random = random_generator->Uniform(0.5,1.5);
+        Double_t random = random_generator->Uniform(0.5,1.5); // 50% - 150%
         initial_val[name] = constraint_osc_mean*random;
         initial_err[name] = constraint_osc_sigma;
 

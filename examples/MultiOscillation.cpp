@@ -92,11 +92,11 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
             sprintf(name, "%s", spectrum_pwr_unosc_filepath.c_str());
         else if (reactor_types[i]=="PHWR")
             sprintf(name, "%s", spectrum_phwr_unosc_filepath.c_str());
-        else if (reactor_types[i]=="geonu_uranium") // if reactor type is the set of further reactors
+        else if ((reactor_types[i]=="geonu")&&(reactor_names[i]=="uranium")) // if reactor type is the set of further reactors
             sprintf(name, "%s", spectrum_geonu_u_unosc_filepath.c_str());
-        else if (reactor_types[i]=="geonu_thorium") // if reactor type is the set of further reactors
+        else if (reactor_types[i]=="geonu")&&(reactor_names[i]=="thorium")) // if reactor type is the set of further reactors
             sprintf(name, "%s", spectrum_geonu_th_unosc_filepath.c_str());
-        else if (reactor_types[i]=="bkg_accidentals") // if reactor type is the set of further reactors
+        else if ((reactor_types[i]=="bkg")&&reactor_names[i]=="accidentals"))// if reactor type is the set of further reactors
             sprintf(name, "%s", spectrum_bkg_accidentals_unosc_filepath.c_str());
         else{
             printf("Throw: Reactor doesn't match any loaded type...\n");

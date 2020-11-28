@@ -85,6 +85,7 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
   Double_t data_set_pdf_integral = data_set_pdf.Integral();
 
   bool geos_included = false;
+  double constraint_sum = 0;
   
   for (ULong64_t i = 0; i < n_pdf; i++){
     // for each reactor, load spectrum pdf for reactor type
@@ -166,9 +167,13 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
       Double_t osc_loss = normalisation_reactor/normalisation_unosc;
 
       Double_t constraint_osc_mean = constraint_means[i]*osc_loss*mc_scale_factor;
-      //Double_t constraint_osc_sigma = (constraint_sigmas[i]/constraint_means[i])*constraint_osc_mean;
+      //Double_t constraint_osc_mean = (constraint_means[i]+constraint_sigmas[i]*0.8)*osc_loss*mc_scale_factor;
+      Double_t constraint_osc_sigma = (constraint_sigmas[i]/constraint_means[i])*constraint_osc_mean;
       //Double_t constraint_osc_sigma = sqrt(constraint_osc_mean);
-      Double_t constraint_osc_sigma = 0.15*constraint_osc_mean;
+      //Double_t constraint_osc_sigma = 0.15*constraint_osc_mean;
+      
+      constraint_sum = constraint_sum + constraint_osc_mean;
+      
       
       reactor_osc_pdf[i]->Normalise(); //remove number of events from mc
       reactor_unosc_pdf[i]->Scale(1./flux_data); // osc pdf gets fitted, the unosc doesn't, scale it simply for plotting..
@@ -180,9 +185,9 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
       if (min < 0) min = 0;
         minima[name] = min;
       maxima[name] = max;
-      printf("  added reactor %d/%d: %s, osc_survival: %.3f, norm_constraint: %.3f (min:%.3f max:%.3f) err: %.3f data_int:%.0f\n", i+1, n_pdf, reactor_names[i].c_str(), osc_loss,constraint_osc_mean, min, max, constraint_osc_sigma, data_set_pdf_integral);
+      printf("  added reactor %d/%d: %s, osc_survival: %.3f, norm_constraint: %.3f (min:%.3f max:%.3f) err: %.3f data_int:%.0f constraint_sum:%.2f\n", i+1, n_pdf, reactor_names[i].c_str(), osc_loss,constraint_osc_mean, min, max, constraint_osc_sigma, data_set_pdf_integral, constraint_sum);
       Double_t random = random_generator->Uniform(0.5,1.5);
-      initial_val[name] = constraint_osc_mean*random;
+      initial_val[name] = constraint_osc_mean; //*random;
       initial_err[name] = constraint_osc_sigma;
 
       lh_function.AddDist(*reactor_osc_pdf[i]);
@@ -198,8 +203,8 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
       maxima[name] = max;
       printf("  added reactor %d/%d: %s, norm: %.3f (min:%.3f max:%.3f) sigma: %.3f data_int:%.0f\n", i+1, n_pdf, reactor_names[i].c_str(), 0 , min, max, 0, data_set_pdf_integral);
       Double_t random = random_generator->Uniform(0.5,1.5);
-      initial_val[name] = min + (max-min)*random;
-      initial_err[name] = min + (max-min)*random;
+      initial_val[name] = min + (max-min);//*random;
+      initial_err[name] = min + (max-min);//*random;
 
       lh_function.AddDist(*reactor_osc_pdf[i]);
       //lh_function.SetConstraint(name, constraint_osc_mean, constraint_osc_sigma);
@@ -299,10 +304,38 @@ Double_t LHFit_fit(BinnedED &data_set_pdf, const std::string &spectrum_phwr_unos
   return lh_val;
 }
 
+// example arguments:
+// /home/lidgard/oxsx_sl7/examples/MultiOscillation 
+// "/data/snoplusmc/antinu/ntuples/snop_rat6169_2017/combined/scintFitter/pwr_phwr/pwr_phwr_flux1_day365_passcombined1000_cleanround4_osc1.ntuple.root"
+// "/home/lidgard/antinu_analysis/sensitivity_plot/processed/S_SNOP_months12_flux1_cleanround4_osc1/reactor_list_selection.csv"
+// "/data/snoplusmc/antinu/ntuples/snop_rat6169_2017/reactors/scintFitter/flux1/pdfs/phwr_pdf_flux1_day365_passcombined1000_cleanround4.ntuple.root"
+// "/data/snoplusmc/antinu/ntuples/snop_rat6169_2017/reactors/scintFitter/flux1/pdfs/pwr_pdf_flux1_day365_passcombined1000_cleanround4.ntuple.root"
+// "/data/snoplusmc/antinu/ntuples/snop_rat6169_2017/combined/scintFitter/uraniumthorium/uraniumthorium_ratemidq_day365_passcombined1000_cleanround4_osc1.ntuple.root"
+// "/data/snoplusmc/antinu/ntuples/snop_rat6169_2017/combined/scintFitter/alphan_13c/13c_pdf_rate1_day365_passcombined1000_cleanround4.ntuple.root"
+// "/home/lidgard/antinu_analysis/passes/processed/passes_rat6169_reactor_flux1_scintFitter_months12_cleanround4_plots_ntuple.csv"
+// "0.7449577748874628"
+// "8.96365570288e-05"
+// "50"
+// "50"
+// "0.0214"
+// "1000.0"
+// "1.0"
+// "/home/lidgard/antinu_analysis/sensitivity_plot/processed/S_SNOP_months12_flux1_cleanround4_osc1/data/plots_1.root"
+// "/home/lidgard/antinu_analysis/sensitivity_plot/processed/S_SNOP_months12_flux1_cleanround4_osc1/data/job_1.csv"
+// "0.9"
+// "7.7"
+// "68"
+// "7.35e-05"
+// "7.4e-05"
+// "0.295"
+// "0.3"
+// "0"
+
+
 int main(int argc, char *argv[]) {
 
   if (argc != 25){
-      std::cout<<"Error: 24 arguments expected."<<std::endl;
+      std::cout<<"Error: 24 arguments expected."<<argc<<std::endl;
       return 1; // return>0 indicates error code
   }
   else{
